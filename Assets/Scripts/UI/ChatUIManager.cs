@@ -140,7 +140,7 @@ public class ChatUIManager : MonoBehaviour
                 messageAreaRect.anchorMax = new Vector2(1, 1); // 右上
                 messageAreaRect.pivot = new Vector2(1, 1); // 右上
                 messageAreaRect.anchoredPosition = new Vector2(-20, -20); // 右から20px、上から20px
-                messageAreaRect.sizeDelta = new Vector2(400, 600); // 幅400、高さ600
+                messageAreaRect.sizeDelta = new Vector2(900, 600); // 幅900、高さ600
                 messageAreaRect.localScale = Vector3.one;
                 
                 Debug.Log("[ChatUI] MessageArea を右上に配置しました");
@@ -374,8 +374,8 @@ public class ChatUIManager : MonoBehaviour
 
         // バブル確定前の ForceMeshUpdate は矩形が仮のままになり、長文でメッシュが重畳することがある
         Vector2 pref = tmp.GetPreferredValues(fullText, innerMax, 0);
-        float bubbleW = Mathf.Clamp(pref.x + 28f, 100f, maxOuterBubble); // 最小幅100
-        float bubbleH = Mathf.Max(pref.y + 20f, 50f); // 最小高さ50
+        float bubbleW = Mathf.Clamp(pref.x + 40f, 100f, maxOuterBubble); // パディングを増やす
+        float bubbleH = Mathf.Max(pref.y + 30f, 50f); // パディングを増やす
 
         Debug.Log($"[ChatUI] テキスト推奨サイズ: {pref}, バブル: {bubbleW}x{bubbleH}");
 
@@ -391,11 +391,12 @@ public class ChatUIManager : MonoBehaviour
         }
         else
         {
+            // AIの吹き出しは左寄せ
             bubbleRT.anchorMin = new Vector2(0f, 0.5f);
             bubbleRT.anchorMax = new Vector2(0f, 0.5f);
             bubbleRT.pivot = new Vector2(0f, 0.5f);
             bubbleRT.sizeDelta = new Vector2(bubbleW, bubbleH);
-            bubbleRT.anchoredPosition = new Vector2(padX, 0f);
+            bubbleRT.anchoredPosition = new Vector2(padX * 6, 0f); // さらに左に寄せる (3倍)
         }
 
         rowLE.minHeight = bubbleH + 10f;

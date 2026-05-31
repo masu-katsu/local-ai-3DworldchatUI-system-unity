@@ -23,7 +23,7 @@ public class CharacterBubbleDisplay : MonoBehaviour
 
     [Header("表示設定")]
     [SerializeField] private Color bubbleColor = new Color(0.28f, 0.30f, 0.36f); // AI吹き出し色
-    [SerializeField] private float maxWidth = 300f;    // 吹き出しの最大幅
+    [SerializeField] private float maxWidth = 500f;    // 吹き出しの最大幅
     [SerializeField] private float displayDuration = 6f; // 表示時間（秒）
     [SerializeField] private float fadeOutDuration = 1f; // フェードアウト時間（秒）
     [SerializeField] private TMP_FontAsset japaneseFont; // 日本語フォント
@@ -165,6 +165,8 @@ public class CharacterBubbleDisplay : MonoBehaviour
         RectTransform panelRect = bubbleBackground.GetComponent<RectTransform>();
         if (panelRect != null)
         {
+            // ピボットを下端に設定して上方向に伸びるようにする
+            panelRect.pivot = new Vector2(0.5f, 0f);
             panelRect.sizeDelta = new Vector2(finalWidth, finalHeight);
         }
 
