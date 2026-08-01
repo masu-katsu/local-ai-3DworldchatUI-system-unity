@@ -10,7 +10,7 @@ public class ApiClient : MonoBehaviour
 
     [Header("Connection Settings")]
     [Tooltip("FastAPI server URL")]
-    [SerializeField] private string serverUrl = "http://localhost:8000";
+    [SerializeField] private string serverUrl = "http://127.0.0.1:8000";
 
     [Tooltip("API Key")]
     [SerializeField] private string apiKey = "";
@@ -55,43 +55,53 @@ public class ApiClient : MonoBehaviour
             user_id = userId
         };
         string json = JsonUtility.ToJson(requestBody);
+        string[] endpoints = { "/api/chat", "/unity/predict" };
 
-        using (var request = new UnityWebRequest($"{serverUrl}/api/chat", "POST"))
+        for (int i = 0; i < endpoints.Length; i++)
         {
-            byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
-            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Content-Type", "application/json; charset=utf-8");
-            request.SetRequestHeader("X-API-Key", apiKey);
-            request.timeout = timeoutSeconds;
-
-            yield return request.SendWebRequest();
-
-            if (request.result == UnityWebRequest.Result.Success)
+            string endpoint = endpoints[i];
+            using (var request = new UnityWebRequest($"{serverUrl}{endpoint}", "POST"))
             {
-                try
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
+                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json; charset=utf-8");
+                request.SetRequestHeader("X-API-Key", apiKey);
+                request.timeout = timeoutSeconds;
+
+                yield return request.SendWebRequest();
+
+                if (request.result == UnityWebRequest.Result.Success)
                 {
-                    string jsonText = request.downloadHandler.text;
-                    Debug.Log("[ApiClient] Response: " + jsonText);
-                    var response = JsonUtility.FromJson<ChatResponse>(jsonText);
-                    
-                    if (response == null)
+                    try
                     {
-                        onError?.Invoke("Parse error: null response");
+                        string jsonText = request.downloadHandler.text;
+                        Debug.Log("[ApiClient] Response: " + jsonText);
+                        var response = JsonUtility.FromJson<ChatResponse>(jsonText);
+                        
+                        if (response == null)
+                        {
+                            onError?.Invoke("Parse error: null response");
+                            yield break;
+                        }
+                        
+                        onSuccess?.Invoke(response);
                         yield break;
                     }
-                    
-                    onSuccess?.Invoke(response);
+                    catch (Exception e)
+                    {
+                        Debug.LogError("[ApiClient] Error: " + e);
+                        onError?.Invoke("Parse error: " + e.Message);
+                        yield break;
+                    }
                 }
-                catch (Exception e)
+
+                bool shouldRetry = request.responseCode == 404 && i < endpoints.Length - 1;
+                if (!shouldRetry)
                 {
-                    Debug.LogError("[ApiClient] Error: " + e);
-                    onError?.Invoke("Parse error: " + e.Message);
+                    onError?.Invoke(GetErrorMessage(request));
+                    yield break;
                 }
-            }
-            else
-            {
-                onError?.Invoke(GetErrorMessage(request));
             }
         }
     }
@@ -103,26 +113,36 @@ public class ApiClient : MonoBehaviour
 
     private IEnumerator CheckHealthCoroutine(Action<HealthResponse> onSuccess, Action<string> onError)
     {
-        using (var request = UnityWebRequest.Get($"{serverUrl}/api/health"))
-        {
-            request.timeout = 10;
-            yield return request.SendWebRequest();
+        string[] endpoints = { "/api/health", "/health" };
 
-            if (request.result == UnityWebRequest.Result.Success)
+        for (int i = 0; i < endpoints.Length; i++)
+        {
+            using (var request = UnityWebRequest.Get($"{serverUrl}{endpoints[i]}"))
             {
-                try
+                request.timeout = 10;
+                yield return request.SendWebRequest();
+
+                if (request.result == UnityWebRequest.Result.Success)
                 {
-                    var response = JsonUtility.FromJson<HealthResponse>(request.downloadHandler.text);
-                    onSuccess?.Invoke(response);
+                    try
+                    {
+                        var response = JsonUtility.FromJson<HealthResponse>(request.downloadHandler.text);
+                        onSuccess?.Invoke(response);
+                        yield break;
+                    }
+                    catch (Exception e)
+                    {
+                        onError?.Invoke("Parse error: " + e.Message);
+                        yield break;
+                    }
                 }
-                catch (Exception e)
+
+                bool shouldRetry = request.responseCode == 404 && i < endpoints.Length - 1;
+                if (!shouldRetry)
                 {
-                    onError?.Invoke("Parse error: " + e.Message);
+                    onError?.Invoke(GetErrorMessage(request));
+                    yield break;
                 }
-            }
-            else
-            {
-                onError?.Invoke(GetErrorMessage(request));
             }
         }
     }
