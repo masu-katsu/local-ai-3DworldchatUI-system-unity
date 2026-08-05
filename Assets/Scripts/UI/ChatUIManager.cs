@@ -117,156 +117,12 @@ public class ChatUIManager : MonoBehaviour
         if (typingIndicator != null)
             typingIndicator.SetActive(false);
 
-        // UI レイアウトを自動配置
-        AutoLayoutUI();
+        // Chatボタンが Inspector で設定されていれば表示切り替えを配線する
+        // （Canvas のレイアウト・色を実行時に書き換える処理は削除済み）
+        if (chatButton != null)
+            chatButton.onClick.AddListener(ToggleChatArea);
 
         CheckConnection();
-    }
-
-    /// <summary>
-    /// UI要素を3D空間メインの配置に自動変更
-    /// </summary>
-    private void AutoLayoutUI()
-    {
-        Debug.Log("[ChatUI] UI自動レイアウト開始");
-
-        // ===== MessageArea（Chat履歴）を右上に移動・縮小 =====
-        if (messageArea != null)
-        {
-            RectTransform messageAreaRect = messageArea.GetComponent<RectTransform>();
-            if (messageAreaRect != null)
-            {
-                messageAreaRect.anchorMin = new Vector2(1, 1); // 右上
-                messageAreaRect.anchorMax = new Vector2(1, 1); // 右上
-                messageAreaRect.pivot = new Vector2(1, 1); // 右上
-                messageAreaRect.anchoredPosition = new Vector2(-20, -20); // 右から20px、上から20px
-                messageAreaRect.sizeDelta = new Vector2(900, 600); // 幅900、高さ600
-                messageAreaRect.localScale = Vector3.one;
-                
-                Debug.Log("[ChatUI] MessageArea を右上に配置しました");
-            }
-
-            // Content（メッセージコンテナ）に ContentSizeFitter を追加
-            if (messageContainer != null)
-            {
-                ContentSizeFitter csf = messageContainer.GetComponent<ContentSizeFitter>();
-                if (csf == null)
-                    csf = messageContainer.gameObject.AddComponent<ContentSizeFitter>();
-                
-                csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-                csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-                Debug.Log("[ChatUI] ContentSizeFitter を Content に設定");
-            }
-
-            // 初期状態では非表示
-            messageArea.SetActive(false);
-            Debug.Log("[ChatUI] Chat履歴エリアを初期非表示に設定");
-        }
-
-        // ===== InputArea（入力）を画面下部に配置 =====
-        Transform inputArea = transform.Find("InputArea");
-        if (inputArea != null)
-        {
-            RectTransform inputAreaRect = inputArea.GetComponent<RectTransform>();
-            if (inputAreaRect != null)
-            {
-                inputAreaRect.anchorMin = new Vector2(0.5f, 0); // 下中央
-                inputAreaRect.anchorMax = new Vector2(0.5f, 0); // 下中央
-                inputAreaRect.pivot = new Vector2(0.5f, 0); // 下中央
-                inputAreaRect.anchoredPosition = new Vector2(0, 20); // 下から20px
-                inputAreaRect.sizeDelta = new Vector2(600, 100); // 幅600、高さ100
-                inputAreaRect.localScale = Vector3.one;
-                
-                Debug.Log("[ChatUI] InputArea を下部に配置しました");
-            }
-        }
-
-        // ===== Chatボタンを右上に作成 =====
-        if (chatButton == null)
-        {
-            CreateChatButton();
-        }
-        else
-        {
-            RectTransform chatButtonRect = chatButton.GetComponent<RectTransform>();
-            if (chatButtonRect != null)
-            {
-                chatButtonRect.anchorMin = new Vector2(1, 1); // 右上
-                chatButtonRect.anchorMax = new Vector2(1, 1); // 右上
-                chatButtonRect.pivot = new Vector2(1, 1); // 右上
-                chatButtonRect.anchoredPosition = new Vector2(-20, -450); // 右から20px、上から450px（MessageAreaの下）
-                chatButtonRect.sizeDelta = new Vector2(80, 80); // 幅80、高さ80
-                
-                Debug.Log("[ChatUI] Chatボタンを右上に配置しました");
-            }
-        }
-
-        // ===== Canvas背景を透明化 =====
-        Canvas canvas = GetComponent<Canvas>();
-        if (canvas != null)
-        {
-            Image canvasImage = GetComponent<Image>();
-            if (canvasImage != null)
-            {
-                Color bgColor = canvasImage.color;
-                bgColor.a = 0f; // 完全透明
-                canvasImage.color = bgColor;
-                Debug.Log("[ChatUI] Canvas背景を透明化しました");
-            }
-        }
-
-        Debug.Log("[ChatUI] UI自動レイアウト完了");
-    }
-
-    /// <summary>
-    /// Chatボタンを動的に作成
-    /// </summary>
-    private void CreateChatButton()
-    {
-        Debug.Log("[ChatUI] Chatボタンを動的に作成");
-
-        Canvas canvas = GetComponent<Canvas>();
-        if (canvas == null) return;
-
-        // ボタンGameObjectを作成
-        GameObject chatButtonObj = new GameObject("ChatButton");
-        chatButtonObj.transform.SetParent(transform, false);
-
-        Image buttonImage = chatButtonObj.AddComponent<Image>();
-        buttonImage.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
-
-        Button buttonComponent = chatButtonObj.AddComponent<Button>();
-        buttonComponent.targetGraphic = buttonImage;
-
-        // テキストを追加
-        GameObject textObj = new GameObject("Text");
-        textObj.transform.SetParent(chatButtonObj.transform, false);
-
-        TextMeshProUGUI buttonText = textObj.AddComponent<TextMeshProUGUI>();
-        buttonText.text = "Chat";
-        buttonText.fontSize = 36;
-        buttonText.color = Color.white;
-        buttonText.alignment = TextAlignmentOptions.Center;
-
-        RectTransform textRect = textObj.GetComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = Vector2.zero;
-        textRect.offsetMax = Vector2.zero;
-
-        // ボタン配置
-        RectTransform buttonRect = chatButtonObj.GetComponent<RectTransform>();
-        buttonRect.anchorMin = new Vector2(1, 1); // 右上
-        buttonRect.anchorMax = new Vector2(1, 1);
-        buttonRect.pivot = new Vector2(1, 1);
-        buttonRect.anchoredPosition = new Vector2(-20, -450);
-        buttonRect.sizeDelta = new Vector2(80, 80);
-
-        // ボタンクリック時の処理
-        buttonComponent.onClick.AddListener(() => ToggleChatArea());
-
-        chatButton = buttonComponent;
-        Debug.Log("[ChatUI] Chatボタンを作成しました");
     }
 
     private void OnDestroy()
@@ -369,12 +225,12 @@ public class ChatUIManager : MonoBehaviour
         tmp.richText = true;
 
         float contentW = GetContentWidth();
-        float maxOuterBubble = Mathf.Max(150f, contentW * 0.85f); // コンテンツ幅の85%
-        float innerMax = Mathf.Max(50f, maxOuterBubble - 30f); // 左右パディング
+        float maxOuterBubble = Mathf.Min(990f, Mathf.Max(1000f, contentW * 0.92f)); // コンテンツ幅の92%まで広げて、改行を遅らせる
+        float innerMax = Mathf.Max(220f, maxOuterBubble - 32f); // 左右パディングを考慮した本文の最大幅
 
         // バブル確定前の ForceMeshUpdate は矩形が仮のままになり、長文でメッシュが重畳することがある
         Vector2 pref = tmp.GetPreferredValues(fullText, innerMax, 0);
-        float bubbleW = Mathf.Clamp(pref.x + 40f, 100f, maxOuterBubble); // パディングを増やす
+        float bubbleW = Mathf.Clamp(pref.x + 36f, 140f, maxOuterBubble); // パディングを増やす
         float bubbleH = Mathf.Max(pref.y + 30f, 50f); // パディングを増やす
 
         Debug.Log($"[ChatUI] テキスト推奨サイズ: {pref}, バブル: {bubbleW}x{bubbleH}");
