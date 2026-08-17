@@ -15,6 +15,12 @@ public class ChatUIManager : MonoBehaviour
     [SerializeField] private Button sendButton;
     [SerializeField] private GameObject typingIndicator;
     [SerializeField] private TextMeshProUGUI statusText;
+    [Header("メッセージPrefab")]
+    [SerializeField] private GameObject userMessagePrefab;
+    [SerializeField] private GameObject aiMessagePrefab;
+
+
+
 
     [Header("Chat表示切り替え")]
     [SerializeField] private GameObject messageArea;      // Chat履歴エリア全体
@@ -154,7 +160,9 @@ public class ChatUIManager : MonoBehaviour
 
     private void OnMessageAdded(ChatMessage message)
     {
-        Debug.Log($"[ChatUI] OnMessageAdded: role={message.role}, content={message.content}");
+        Debug.Log(
+            $"[ChatUI] OnMessageAdded: role={message.role}, content={message.content}"
+        );
 
         if (messageContainer == null)
         {
@@ -162,8 +170,7 @@ public class ChatUIManager : MonoBehaviour
             return;
         }
 
-        bool isUser = message.role == "user";
-        AddBubble(message.content, isUser, message.modelUsed, message.contextUsed);
+        AddBubble(message);
     }
 
     /// <summary>
@@ -174,109 +181,78 @@ public class ChatUIManager : MonoBehaviour
     /// <summary>
     /// TMP が本文中の &lt; &gt; をリッチタグと誤解して描画が壊れないよう、本文だけ noparse で包む
     /// </summary>
-    private static string TmpWrapBodyForRichSuffix(string body)
+
+    private void AddBubble(ChatMessage message)
     {
-        if (body == null) body = "";
-        body = body.Replace("</noparse>", "");
-        return "<noparse>" + body + "</noparse>";
-    }
-
-    private void AddBubble(string text, bool isUser, string modelUsed, bool contextUsed)
-    {
-        text = text ?? "";
-        var rowObj = new GameObject(isUser ? "UserRow" : "AIRow");
-        rowObj.transform.SetParent(messageContainer, false);
-        var rowLE = rowObj.AddComponent<LayoutElement>();
-        rowLE.layoutPriority = 1;
-
-        var bubbleObj = new GameObject(isUser ? "UserBubble" : "AIBubble");
-        bubbleObj.transform.SetParent(rowObj.transform, false);
-
-        var img = bubbleObj.AddComponent<Image>();
-        img.color = isUser ? USER_BUBBLE_COLOR : AI_BUBBLE_COLOR;
-
-        var textObj = new GameObject("Text");
-        textObj.transform.SetParent(bubbleObj.transform, false);
-        var textRT = textObj.AddComponent<RectTransform>();
-        textRT.anchorMin = Vector2.zero;
-        textRT.anchorMax = Vector2.one;
-        textRT.offsetMin = new Vector2(14, 8);
-        textRT.offsetMax = new Vector2(-14, -8);
-
-        var tmp = textObj.AddComponent<TextMeshProUGUI>();
-        tmp.fontSize = 18;
-        tmp.color = TEXT_COLOR;
-        tmp.alignment = TextAlignmentOptions.TopLeft;
-        tmp.enableWordWrapping = true;
-        tmp.overflowMode = TextOverflowModes.Overflow;
-        if (japaneseFont != null) tmp.font = japaneseFont;
-
-        string timeStr = System.DateTime.Now.ToString("HH:mm");
-        string suffix = "\n<size=11><color=#A0A5B0>";
-        if (!isUser && !string.IsNullOrEmpty(modelUsed))
+        if (message == null)
         {
-            suffix += modelUsed;
-            if (contextUsed) suffix += " | 履歴参照";
-            suffix += "  ";
-        }
-        suffix += timeStr + "</color></size>";
-        string fullText = TmpWrapBodyForRichSuffix(text) + suffix;
-        tmp.text = fullText;
-        tmp.richText = true;
-
-        float contentW = GetContentWidth();
-        float maxOuterBubble = Mathf.Min(990f, Mathf.Max(1000f, contentW * 0.92f)); // コンテンツ幅の92%まで広げて、改行を遅らせる
-        float innerMax = Mathf.Max(220f, maxOuterBubble - 32f); // 左右パディングを考慮した本文の最大幅
-
-        // バブル確定前の ForceMeshUpdate は矩形が仮のままになり、長文でメッシュが重畳することがある
-        Vector2 pref = tmp.GetPreferredValues(fullText, innerMax, 0);
-        float bubbleW = Mathf.Clamp(pref.x + 36f, 140f, maxOuterBubble); // パディングを増やす
-        float bubbleH = Mathf.Max(pref.y + 30f, 50f); // パディングを増やす
-
-        Debug.Log($"[ChatUI] テキスト推奨サイズ: {pref}, バブル: {bubbleW}x{bubbleH}");
-
-        var bubbleRT = bubbleObj.GetComponent<RectTransform>();
-        const float padX = 10f;
-        if (isUser)
-        {
-            bubbleRT.anchorMin = new Vector2(1f, 0.5f);
-            bubbleRT.anchorMax = new Vector2(1f, 0.5f);
-            bubbleRT.pivot = new Vector2(1f, 0.5f);
-            bubbleRT.sizeDelta = new Vector2(bubbleW, bubbleH);
-            bubbleRT.anchoredPosition = new Vector2(-padX, 0f);
-        }
-        else
-        {
-            // AIの吹き出しは左寄せ
-            bubbleRT.anchorMin = new Vector2(0f, 0.5f);
-            bubbleRT.anchorMax = new Vector2(0f, 0.5f);
-            bubbleRT.pivot = new Vector2(0f, 0.5f);
-            bubbleRT.sizeDelta = new Vector2(bubbleW, bubbleH);
-            bubbleRT.anchoredPosition = new Vector2(padX * 6, 0f); // さらに左に寄せる (3倍)
+            Debug.LogError("[ChatUI] ChatMessage が null です。");
+            return;
         }
 
-        rowLE.minHeight = bubbleH + 10f;
-        rowLE.preferredHeight = bubbleH + 10f;
+        bool isUser = message.role == "user";
 
-        LayoutRebuilder.ForceRebuildLayoutImmediate(bubbleRT);
-        tmp.ForceMeshUpdate(true);
+        GameObject prefab =
+            isUser ? userMessagePrefab : aiMessagePrefab;
 
-        var contentRT = messageContainer as RectTransform;
+        if (prefab == null)
+        {
+            Debug.LogError(
+                isUser
+                    ? "[ChatUI] UserMessagePrefab が未設定です。"
+                    : "[ChatUI] AIMessagePrefab が未設定です。"
+            );
+            return;
+        }
+
+        // PrefabをContent直下に生成
+        GameObject instance = Instantiate(
+            prefab,
+            messageContainer,
+            false
+        );
+
+     instance.name =
+            isUser ? "UserMessageBubble" : "AIMessageBubble";
+
+        // Prefabに付いているMessageBubbleを取得
+        MessageBubble bubble =
+            instance.GetComponent<MessageBubble>();
+
+        if (bubble == null)
+        {
+            Debug.LogError(
+                $"[ChatUI] {instance.name} に MessageBubble.cs がありません。",
+                instance
+            );
+
+            Destroy(instance);
+            return;
+        }
+
+        // 本文・サイズを設定
+        bubble.SetMessage(message);
+
+        // Contentのレイアウトを再計算
+        Canvas.ForceUpdateCanvases();
+
+        RectTransform contentRT =
+            messageContainer as RectTransform;
+
         if (contentRT != null)
-            LayoutRebuilder.ForceRebuildLayoutImmediate(contentRT);
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(
+                contentRT
+            );
+        }
 
+        // 一番下へスクロール
         StartCoroutine(ScrollToBottom());
 
-        Debug.Log($"[ChatUI] バブル追加: isUser={isUser}, size={bubbleRT.rect.size}");
-    }
-
-    private float GetContentWidth()
-    {
-        var rt = messageContainer as RectTransform;
-        if (rt != null && rt.rect.width > 0)
-            return rt.rect.width;
-        // フォールバック: 画面幅の推定
-        return Screen.width;
+        Debug.Log(
+            $"[ChatUI] Prefabからバブル追加: " +
+            $"role={message.role}, prefab={prefab.name}"
+        );
     }
 
     private IEnumerator ScrollToBottom()

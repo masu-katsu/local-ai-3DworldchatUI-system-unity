@@ -4,29 +4,82 @@ using UnityEngine.UI;
 
 /// <summary>
 /// 個々のメッセージバブルを表示し、
-/// 文章量に合わせて横幅と高さを調整する。
+/// Viewportの横幅に合わせてバブルサイズを自動調整する。
 /// </summary>
 public class MessageBubble : MonoBehaviour
 {
     [Header("表示要素")]
     [SerializeField] private TextMeshProUGUI messageText;
-    [SerializeField] private TextMeshProUGUI timeText;
-    [SerializeField] private TextMeshProUGUI metaText;
 
     [Header("吹き出し")]
     [SerializeField] private RectTransform bubblePanel;
-    [SerializeField] private Image bubbleBackground;
     [SerializeField] private LayoutElement bubbleLayoutElement;
 
     [Header("サイズ")]
     [SerializeField] private float minBubbleWidth = 100f;
 
     [Range(0.1f, 1f)]
-    [SerializeField] private float maxWidthRatio = 0.78f;
+    [SerializeField] private float maxWidthRatio = 0.75f;
 
-    [SerializeField] private float horizontalPadding = 44f;
-    [SerializeField] private float verticalPadding = 30f;
+    [SerializeField] private float horizontalPadding = 22f;
+    [SerializeField] private float verticalPadding = 15f;
 
+    // Content
+    private RectTransform contentRect;
+
+    // Viewport
+    private RectTransform viewportRect;
+
+    // 前回確認したViewport横幅
+    private float lastViewportWidth = -1f;
+
+    // Layout再計算の多重実行防止
+    private bool isUpdatingLayout = false;
+
+
+    private void Awake()
+    {
+        CacheLayoutReferences();
+    }
+
+
+    private void Start()
+    {
+        RecalculateBubbleSize();
+    }
+
+
+    /// <summary>
+    /// Gameビューのサイズ変更などで
+    /// Viewport横幅が変わった場合だけ再計算する。
+    /// </summary>
+    private void LateUpdate()
+    {
+        if (!isActiveAndEnabled)
+            return;
+
+        if (viewportRect == null)
+        {
+            CacheLayoutReferences();
+        }
+
+        if (viewportRect == null)
+            return;
+
+        float currentWidth = viewportRect.rect.width;
+
+        if (Mathf.Abs(
+            currentWidth - lastViewportWidth
+        ) > 0.5f)
+        {
+            RecalculateBubbleSize();
+        }
+    }
+
+
+    /// <summary>
+    /// メッセージを設定する。
+    /// </summary>
     public void SetMessage(ChatMessage message)
     {
         if (message == null)
@@ -47,48 +100,50 @@ public class MessageBubble : MonoBehaviour
             return;
         }
 
-        // メッセージ本文
-        messageText.text = CleanMessage(message.content);
+        messageText.text =
+            CleanMessage(message.content);
 
-        // 時刻
-        if (timeText != null)
-        {
-            timeText.text = message.timestamp.ToString("HH:mm");
-        }
-
-        // AIだけモデル名・処理時間を表示
-        if (metaText != null)
-        {
-            bool isAssistant = message.role == "assistant";
-
-            metaText.gameObject.SetActive(isAssistant);
-
-            if (isAssistant)
-            {
-                string meta =
-                    $"{message.modelUsed} | " +
-                    $"{message.processingTime:F1}s";
-
-                if (message.contextUsed)
-                    meta += " | 履歴参照";
-
-                metaText.text = meta;
-            }
-        }
-
-        // TMPとLayoutの計算を更新
         messageText.ForceMeshUpdate();
+
         Canvas.ForceUpdateCanvases();
 
-        UpdateBubbleSize();
+        RecalculateBubbleSize();
     }
 
+
     /// <summary>
-    /// 文章量に合わせて吹き出しサイズを変更する。
+    /// ContentとViewportの参照を取得する。
     /// </summary>
-    private void UpdateBubbleSize()
+    private void CacheLayoutReferences()
     {
-        Debug.Log("[MessageBubble] UpdateBubbleSize");
+        // MessageBubbleルートの親 = Content
+        contentRect =
+            transform.parent as RectTransform;
+
+        if (contentRect == null)
+        {
+            viewportRect = null;
+            return;
+        }
+
+        // Contentの親 = Viewport
+        viewportRect =
+            contentRect.parent as RectTransform;
+    }
+
+
+    /// <summary>
+    /// Viewportの横幅を基準に
+    /// Bubbleの幅・高さを計算する。
+    /// </summary>
+    private void RecalculateBubbleSize()
+    {
+        if (isUpdatingLayout)
+            return;
+
+        if (messageText == null)
+            return;
+
         if (bubblePanel == null)
         {
             Debug.LogWarning(
@@ -107,123 +162,193 @@ public class MessageBubble : MonoBehaviour
             return;
         }
 
-        RectTransform rootRect = transform as RectTransform;
-        RectTransform parentRect = transform.parent as RectTransform;
+        if (contentRect == null ||
+            viewportRect == null)
+        {
+            CacheLayoutReferences();
+        }
 
-        if (parentRect == null)
-            return;
-
-        Canvas.ForceUpdateCanvases();
-
-        float availableWidth = parentRect.rect.width;
-
-        if (availableWidth <= 0f)
+        if (contentRect == null)
         {
             Debug.LogWarning(
-                "[MessageBubble] 親Contentの横幅を取得できません。",
+                "[MessageBubble] Contentを取得できません。",
                 this
             );
             return;
         }
 
-        float maxBubbleWidth = Mathf.Max(
-            minBubbleWidth,
-            availableWidth * maxWidthRatio
-        );
-
-        // 改行しない場合の本来の横幅
-        Vector2 naturalSize = messageText.GetPreferredValues(
-            messageText.text,
-            Mathf.Infinity,
-            Mathf.Infinity
-        );
-
-        float bubbleWidth = Mathf.Clamp(
-            naturalSize.x + horizontalPadding,
-            minBubbleWidth,
-            maxBubbleWidth
-        );
-
-        // 決定した横幅で折り返した場合の高さを計算
-        float textWidth = Mathf.Max(
-            1f,
-            bubbleWidth - horizontalPadding
-        );
-
-        Debug.Log(
-            $"[MessageBubble] availableWidth={availableWidth}, " +
-            $"naturalWidth={naturalSize.x}, " +
-            $"bubbleWidth={bubbleWidth}, " +
-            $"textWidth={textWidth}",
-            this
-        );
-
-        Vector2 wrappedTextSize = messageText.GetPreferredValues(
-            messageText.text,
-            textWidth,
-            Mathf.Infinity
-        );
-
-        // 時刻・メタ情報の高さも含める
-        float additionalHeight = GetAdditionalTextHeight();
-
-        float bubbleHeight =
-            wrappedTextSize.y +
-            additionalHeight +
-            verticalPadding;
-
-        bubbleLayoutElement.minWidth = bubbleWidth;
-        bubbleLayoutElement.preferredWidth = bubbleWidth;
-        bubbleLayoutElement.flexibleWidth = 0f;
-
-        bubbleLayoutElement.minHeight = bubbleHeight;
-        bubbleLayoutElement.preferredHeight = bubbleHeight;
-        bubbleLayoutElement.flexibleHeight = 0f;
-
-
-        // MessageTextの横幅も確実に設定する
-        RectTransform messageRect = messageText.rectTransform;
-
-        messageRect.SetSizeWithCurrentAnchors(
-            RectTransform.Axis.Horizontal,
-            textWidth
-        );
-
-        LayoutRebuilder.ForceRebuildLayoutImmediate(bubblePanel);
-
-        if (rootRect != null)
+        if (viewportRect == null)
         {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(rootRect);
+            Debug.LogWarning(
+                "[MessageBubble] Viewportを取得できません。",
+                this
+            );
+            return;
         }
 
-        LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
+        isUpdatingLayout = true;
+
+        try
+        {
+            Canvas.ForceUpdateCanvases();
+
+
+            // ========================================
+            // Viewport横幅
+            // ========================================
+
+            float viewportWidth =
+                viewportRect.rect.width;
+
+            if (viewportWidth <= 0f)
+                return;
+
+            lastViewportWidth =
+                viewportWidth;
+
+
+            // ========================================
+            // 左右の固定余白
+            // ========================================
+
+            const float edgeMargin = 10f;
+
+            float availableWidth =
+                viewportWidth -
+                edgeMargin * 2f;
+
+            if (availableWidth <= 0f)
+                return;
+
+
+            // ========================================
+            // Bubble最大横幅
+            // ========================================
+
+            float maxBubbleWidth =
+                Mathf.Max(
+                    minBubbleWidth,
+                    availableWidth * maxWidthRatio
+                );
+
+
+            // ========================================
+            // 改行しない場合の自然なテキスト幅
+            // ========================================
+
+            Vector2 naturalSize =
+                messageText.GetPreferredValues(
+                    messageText.text,
+                    Mathf.Infinity,
+                    Mathf.Infinity
+                );
+
+
+            // ========================================
+            // Bubble横幅
+            // ========================================
+
+            float bubbleWidth =
+                Mathf.Clamp(
+                    naturalSize.x +
+                    horizontalPadding * 2f,
+
+                    minBubbleWidth,
+                    maxBubbleWidth
+                );
+
+
+            // ========================================
+            // Bubble内部で文字が使える幅
+            // ========================================
+
+            float textWidth =
+                Mathf.Max(
+                    1f,
+                    bubbleWidth -
+                    horizontalPadding * 2f
+                );
+
+
+            // ========================================
+            // 折り返し後のテキストサイズ
+            // ========================================
+
+            Vector2 wrappedSize =
+                messageText.GetPreferredValues(
+                    messageText.text,
+                    textWidth,
+                    Mathf.Infinity
+                );
+
+
+            // ========================================
+            // Bubble高さ
+            // ========================================
+
+            float bubbleHeight =
+                wrappedSize.y +
+                verticalPadding * 2f;
+
+
+            // ========================================
+            // LayoutElementへ通知
+            // ========================================
+
+            bubbleLayoutElement.minWidth =
+                bubbleWidth;
+
+            bubbleLayoutElement.preferredWidth =
+                bubbleWidth;
+
+            bubbleLayoutElement.flexibleWidth =
+                0f;
+
+            bubbleLayoutElement.minHeight =
+                bubbleHeight;
+
+            bubbleLayoutElement.preferredHeight =
+                bubbleHeight;
+
+            bubbleLayoutElement.flexibleHeight =
+                0f;
+
+
+            // ========================================
+            // Layout再構築
+            // ========================================
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(
+                bubblePanel
+            );
+
+            RectTransform rootRect =
+                transform as RectTransform;
+
+            if (rootRect != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(
+                    rootRect
+                );
+            }
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(
+                contentRect
+            );
+        }
+        finally
+        {
+            isUpdatingLayout = false;
+        }
     }
-    
 
-    /// <summary>
-    /// 時刻とメタ情報に必要な高さを取得する。
-    /// </summary>
-    private float GetAdditionalTextHeight()
-    {
-        float height = 0f;
-
-        if (timeText != null && timeText.gameObject.activeSelf)
-        {
-            height += timeText.preferredHeight;
-        }
-
-        if (metaText != null && metaText.gameObject.activeSelf)
-        {
-            height += metaText.preferredHeight;
-        }
-
-        return height;
-    }
 
     /// <summary>
     /// AIモデル由来の特殊トークンを削除する。
     /// </summary>
-    private static string CleanMessage(string message)
+    private static string CleanMessage(
+        string message
+    )
     {
         if (string.IsNullOrWhiteSpace(message))
             return string.Empty;
@@ -232,6 +357,8 @@ public class MessageBubble : MonoBehaviour
             .Replace("<|assistant|>", "")
             .Replace("<|user|>", "")
             .Replace("<|system|>", "")
+            .Replace("<|im_start|>", "")
+            .Replace("<|im_end|>", "")
             .Trim();
     }
 }
