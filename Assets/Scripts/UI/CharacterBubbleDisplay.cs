@@ -23,7 +23,9 @@ public class CharacterBubbleDisplay : MonoBehaviour
 
     [Header("表示設定")]
     [SerializeField] private Color bubbleColor = new Color(0.28f, 0.30f, 0.36f); // AI吹き出し色
-    [SerializeField] private float maxWidth = 500f;    // 吹き出しの最大幅
+    [SerializeField] private bool useFixedBubbleSize = true; // 手動設定したサイズをそのまま使う
+    [SerializeField] private Vector2 fixedBubbleSize = new Vector2(2000f, 500f); // 手動で決めた吹き出しサイズ
+    [SerializeField] private float maxWidth = 2000f;   // 吹き出しの最大幅（固定サイズ時はこの値に揃える）
     [SerializeField] private float displayDuration = 6f; // 表示時間（秒）
     [SerializeField] private float fadeOutDuration = 1f; // フェードアウト時間（秒）
     [SerializeField] private TMP_FontAsset japaneseFont; // 日本語フォント
@@ -141,6 +143,27 @@ public class CharacterBubbleDisplay : MonoBehaviour
     {
         if (bubbleText == null || bubbleBackground == null) return;
 
+        RectTransform panelRect = bubbleBackground.GetComponent<RectTransform>();
+        if (panelRect != null)
+        {
+            panelRect.pivot = new Vector2(0.5f, 0f);
+        }
+
+        if (useFixedBubbleSize)
+        {
+            if (panelRect != null)
+                panelRect.sizeDelta = fixedBubbleSize;
+
+            if (layoutElement != null)
+            {
+                layoutElement.preferredWidth = fixedBubbleSize.x;
+                layoutElement.preferredHeight = fixedBubbleSize.y;
+            }
+
+            Debug.Log($"[CharacterBubbleDisplay] 固定サイズを適用: Width={fixedBubbleSize.x}, Height={fixedBubbleSize.y}");
+            return;
+        }
+
         // テキストを強制更新
         bubbleText.ForceMeshUpdate(true, true);
 
@@ -162,11 +185,8 @@ public class CharacterBubbleDisplay : MonoBehaviour
         float finalHeight = preferredHeight + paddingV;
 
         // 背景パネルのサイズを更新
-        RectTransform panelRect = bubbleBackground.GetComponent<RectTransform>();
         if (panelRect != null)
         {
-            // ピボットを下端に設定して上方向に伸びるようにする
-            panelRect.pivot = new Vector2(0.5f, 0f);
             panelRect.sizeDelta = new Vector2(finalWidth, finalHeight);
         }
 

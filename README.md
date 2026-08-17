@@ -76,7 +76,7 @@ Assets/
 1. **バックエンドのセットアップ**
    - [masu-katsu/local-ai-unity-system](https://github.com/masu-katsu/local-ai-unity-system) をクローン
    - READMEに従ってバックエンドサーバーを起動
-   - デフォルトでは `http://localhost:8000` で起動
+   - デフォルトでは `http://100.81.92.14:8000` で起動
 
 2. **Unityプロジェクトのセットアップ**
    - このリポジトリをクローン
@@ -91,7 +91,7 @@ Assets/
 4. **サーバー接続設定**
    - Unityエディタで実行
    - 設定UIからサーバーURLとAPIキーを設定
-   - デフォルト: `http://localhost:8000`
+   - デフォルト: `http://100.81.92.14:8000`
 
 ## 使用方法
 

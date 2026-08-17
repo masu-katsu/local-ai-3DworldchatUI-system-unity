@@ -475,7 +475,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 600, y: 150}
+  m_SizeDelta: {x: 2000, y: 500}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &78194367
 MonoBehaviour:
@@ -1113,8 +1113,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 50
-  m_fontSizeBase: 50
+  m_fontSize: 100
+  m_fontSizeBase: 100
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -3083,9 +3083,9 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2435367579533464329, guid: 36e02cc2e0255ba428c18aa8c646e4ee, type: 3}
-  - {fileID: 1020506830717794585, guid: 36e02cc2e0255ba428c18aa8c646e4ee, type: 3}
-  - {fileID: 175425119682202320, guid: 36e02cc2e0255ba428c18aa8c646e4ee, type: 3}
+  - {fileID: 2100000, guid: 5fa5dd6b7f2f5714b9f9e405a72e9f4d, type: 2}
+  - {fileID: 2100000, guid: 5fa5dd6b7f2f5714b9f9e405a72e9f4d, type: 2}
+  - {fileID: 2100000, guid: 5fa5dd6b7f2f5714b9f9e405a72e9f4d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -5173,7 +5173,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f9ab76b12df55c04d84d00c6a259f1ba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  serverUrl: http://127.0.0.1:8000
+  serverUrl: http://100.81.92.14:8000
   apiKey: 
   timeoutSeconds: 120
 --- !u!4 &1184182656
@@ -5769,7 +5769,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: http://192.168.x.x:8000
+  m_text: http://100.81.92.14::8000
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 7593e21706c5cf6469b896b58687f414, type: 2}
   m_sharedMaterial: {fileID: 4743003974468278112, guid: 7593e21706c5cf6469b896b58687f414, type: 2}
@@ -6156,14 +6156,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characterHead: {fileID: 1920463032}
-  headOffsetY: 80.350006
+  headOffsetY: 300
   worldSpaceCanvas: {fileID: 1530627920}
   bubbleText: {fileID: 333102601}
   bubbleBackground: {fileID: 78194367}
   layoutElement: {fileID: 78194363}
   bubbleColor: {r: 0.28, g: 0.3, b: 0.36, a: 1}
+  useFixedBubbleSize: 1
+  fixedBubbleSize: {x: 2000, y: 500}
   maxWidth: 500
-  displayDuration: 6
+  displayDuration: 20
   fadeOutDuration: 1
   japaneseFont: {fileID: 0}
 --- !u!114 &1530627918
@@ -6246,8 +6248,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 323.14905, y: 86.45723}
-  m_SizeDelta: {x: 600, y: 200}
+  m_AnchoredPosition: {x: 323.14905, y: 306.1072}
+  m_SizeDelta: {x: 3000, y: 1000}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1551592822
 GameObject:
@@ -7600,7 +7602,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0.7116826, z: 0, w: 0.7025012}
   m_LocalPosition: {x: 323.14905, y: 6.1072245, z: -104}
-  m_LocalScale: {x: 5, y: 5, z: 5}
+  m_LocalScale: {x: 3.5, y: 3.5, z: 3.5}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1821778601}

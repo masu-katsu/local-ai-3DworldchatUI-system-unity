@@ -93,9 +93,9 @@ public class ChatManager : MonoBehaviour
         canvas.renderMode = RenderMode.WorldSpace;
         
         RectTransform canvasRect = canvasObj.GetComponent<RectTransform>();
-        canvasRect.sizeDelta = new Vector2(600, 200);
+        canvasRect.sizeDelta = new Vector2(600, 200); //600.200
         // スケールを大きくして見やすくする（20倍）
-        canvasRect.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+        canvasRect.localScale = new Vector3(0.1f, 0.1f, 0.1f); //0.1f, 0.1f, 0.1f
 
         CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
@@ -116,12 +116,12 @@ public class ChatManager : MonoBehaviour
         panelImage.color = panelColor;
 
         RectTransform panelRect = panelObj.GetComponent<RectTransform>();
-        panelRect.sizeDelta = new Vector2(600, 150);
+        panelRect.sizeDelta = new Vector2(2000, 500);
         panelRect.anchoredPosition = Vector2.zero;
 
         LayoutElement panelLayout = panelObj.AddComponent<LayoutElement>();
-        panelLayout.preferredWidth = 600;
-        panelLayout.preferredHeight = 150;
+        panelLayout.preferredWidth = 2000;
+        panelLayout.preferredHeight = 500;
 
         VerticalLayoutGroup verticalLayout = panelObj.AddComponent<VerticalLayoutGroup>();
         verticalLayout.childForceExpandHeight = false;
@@ -137,18 +137,18 @@ public class ChatManager : MonoBehaviour
 
         TextMeshProUGUI bubbleText = textObj.AddComponent<TextMeshProUGUI>();
         bubbleText.text = "吹き出しテスト";
-        bubbleText.fontSize = 50;
+        bubbleText.fontSize = 50;//50
         bubbleText.alignment = TextAlignmentOptions.TopLeft;
         bubbleText.color = Color.white;
         bubbleText.overflowMode = TextOverflowModes.Overflow;
         bubbleText.enableWordWrapping = true; // テキスト折り返し有効
 
         RectTransform textRect = textObj.GetComponent<RectTransform>();
-        textRect.sizeDelta = new Vector2(600, 150);
+        textRect.sizeDelta = new Vector2(2000, 500);
 
         // テキストが自動的にサイズ調整されるよう LayoutElement を追加
         LayoutElement textLayout = textObj.AddComponent<LayoutElement>();
-        textLayout.preferredWidth = 600;
+        textLayout.preferredWidth = 2000;
         textLayout.preferredHeight = -1; // -1 で自動サイズ
         textLayout.layoutPriority = 1;
 

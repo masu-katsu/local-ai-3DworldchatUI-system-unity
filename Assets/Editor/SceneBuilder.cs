@@ -217,7 +217,7 @@ public class SceneBuilder
         urlLabel.GetComponent<TextMeshProUGUI>().color = TEXT_SECONDARY;
         SetAnchors(urlLabel, new Vector2(0.08f, 1), new Vector2(0.92f, 1), new Vector2(0, yPos - 26), new Vector2(0, yPos));
         yPos -= 30;
-        var urlInput = CreateInputField("ServerUrlInput", settingsPanel, "http://192.168.x.x:8000");
+        var urlInput = CreateInputField("ServerUrlInput", settingsPanel, "http://100.81.92.14::8000");
         SetAnchors(urlInput, new Vector2(0.08f, 1), new Vector2(0.92f, 1), new Vector2(0, yPos - 48), new Vector2(0, yPos));
         yPos -= 64;
 

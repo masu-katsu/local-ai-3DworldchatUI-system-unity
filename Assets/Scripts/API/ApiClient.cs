@@ -10,7 +10,7 @@ public class ApiClient : MonoBehaviour
 
     [Header("Connection Settings")]
     [Tooltip("FastAPI server URL")]
-    [SerializeField] private string serverUrl = "http://127.0.0.1:8000";
+    [SerializeField] private string serverUrl = "http://100.81.92.14::8000";
 
     [Tooltip("API Key")]
     [SerializeField] private string apiKey = "";
