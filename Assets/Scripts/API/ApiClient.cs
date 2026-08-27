@@ -6,11 +6,12 @@ using UnityEngine.Networking;
 
 public class ApiClient : MonoBehaviour
 {
+    public const string DefaultServerUrl = "http://100.81.92.14:8000";
     public static ApiClient Instance { get; private set; }
 
     [Header("Connection Settings")]
     [Tooltip("FastAPI server URL")]
-    [SerializeField] private string serverUrl = "http://100.81.92.14::8000";
+    [SerializeField] private string serverUrl = DefaultServerUrl;
 
     [Tooltip("API Key")]
     [SerializeField] private string apiKey = "";
