@@ -1,179 +1,212 @@
 # Local AI 3D World Chat UI System
 
-Unityベースの3DチャットUIシステムです。AIと対話できる自律的な3Dキャラクターを備えています。
+Unityで動作する、3Dキャラクター付きのローカルAIチャットUIです。チャット入力、AI応答の履歴表示、キャラクター頭上の吹き出し表示、キャラクターの自律行動を提供します。
 
-## 概要
+## 目的と構成
 
-このプロジェクトは、Unity 2022.3.62f3で構築された3Dチャットインターフェースシステムです。ユーザーは3D空間内で自律的に行動するキャラクターと対話することができます。
+このプロジェクトはUnity側のフロントエンドです。AIの推論、会話履歴、RAGやWeb検索などのバックエンド処理は、次の別プロジェクトが担当します。
 
-## 主な機能
+- バックエンド: [masu-katsu/local-ai-project-backend](https://github.com/masu-katsu/local-ai-project-backend)
+- Unity側: 本リポジトリ
+- 通信方式: Unity `UnityWebRequest` とFastAPIのHTTP API
+- 現在の既定接続先: `http://100.81.92.14:8000`
 
-### キャラクター機能
-- **自律的な行動**: キャラクターは待機（wait）、移動（walk）、見渡し（look）、座る（sit）の4つの行動を自動的に切り替えます
-- **自然な動き**: 行動の重み付けとランダム性により、自然な動きを実現しています
-- **ナビゲーション**: NavMeshを使用してシーン内を自律的に移動します
-- **アニメーション**: 各行動に対応したアニメーションを再生します
+`100.81.92.14`はTailscaleネットワーク内のアドレスです。別の利用者が使う場合は、同じIPを使うのではなく、自分のバックエンドURLを設定してください。
 
-### チャット機能
-- **AI対話**: バックエンドAPIを通じてAIと対話できます
-- **吹き出し表示**: キャラクターの頭上に吹き出しを表示してメッセージを伝えます
-- **チャット履歴**: チャットの履歴を管理・表示します
-- **ユーザーID管理**: ユーザーごとの対話履歴を保存できます
+## 必要環境
 
-### UI機能
-- **チャットUI**: テキスト入力とメッセージ表示のUI
-- **設定UI**: サーバーURL、APIキーなどの設定画面
-- **モバイル対応**: モバイルデバイスでの入力をサポート
+- Unity `2022.3.62f3`
+- バックエンドプロジェクトと、その依存関係
+- Unityからバックエンドへ到達できるネットワーク
+- 日本語を表示する場合は日本語対応のTextMesh Proフォント
 
-## システムアーキテクチャ
+## セットアップ
 
-### バックエンド
-バックエンドシステムには以下のリポジトリを使用しています：
-- **[masu-katsu/local-ai-unity-system](https://github.com/masu-katsu/local-ai-unity-system)**
+### 1. バックエンドを起動する
 
-バックエンドの詳細な説明、セットアップ手順、API仕様については上記URLを参照してください。
+バックエンドリポジトリを取得し、リポジトリの手順に従ってFastAPIサーバーを起動します。
 
-### フロントエンド構成
-
-```
-Assets/
-├── Scripts/
-│   ├── API/              # バックエンドとの通信
-│   │   ├── ApiClient.cs  # FastAPIサーバーとの通信クラス
-│   │   └── ApiModels.cs  # リクエスト/レスポンスモデル
-│   ├── Character/        # キャラクター制御
-│   │   ├── CharacterBrain.cs      # 行動決定ロジック
-│   │   ├── AnimationController.cs # アニメーション制御
-│   │   ├── MovementController.cs  # 移動制御
-│   │   └── CharacterStateMachine.cs # 状態管理
-│   ├── Chat/             # チャット機能
-│   │   └── ChatManager.cs         # チャットロジック管理
-│   ├── Core/             # コアシステム
-│   │   ├── AutonomousPlayBootstrap.cs # シーンセットアップ
-│   │   └── UIManager.cs           # UI管理
-│   ├── Navigation/       # ナビゲーション
-│   │   ├── Waypoint.cs           # ウェイポイント
-│   │   └── WaypointManager.cs     # ウェイポイント管理
-│   ├── UI/               # UIコンポーネント
-│   │   ├── ChatUIManager.cs       # チャットUI
-│   │   ├── CharacterBubbleDisplay.cs # 吹き出し表示
-│   │   └── SettingsUIManager.cs  # 設定UI
-│   └── Network/          # ネットワーク監視
-│       └── NetworkMonitor.cs
-└── Editor/               # エディタ拡張
-    ├── SceneBuilder.cs
-    └── AutonomousCharacterSetup.cs
+```text
+https://github.com/masu-katsu/local-ai-project-backend
 ```
 
-## セットアップ手順
+Unityからアクセスできるアドレスとポートで待ち受けていることを確認してください。まず、次のヘルスチェックが成功することを確認します。
 
-### 前提条件
-- Unity 2022.3.62f3
-- バックエンドサーバー（[local-ai-unity-system](https://github.com/masu-katsu/local-ai-unity-system)）
+```text
+http://<バックエンドのIPまたはホスト名>:8000/api/health
+```
 
-### 手順
+### 2. Unityプロジェクトを開く
 
-1. **バックエンドのセットアップ**
-   - [masu-katsu/local-ai-unity-system](https://github.com/masu-katsu/local-ai-unity-system) をクローン
-   - READMEに従ってバックエンドサーバーを起動
-   - デフォルトでは `http://100.81.92.14:8000` で起動
+1. Unity `2022.3.62f3`で本プロジェクトを開く
+2. `Assets/Scenes/SampleScene.unity`を開く
+3. 必要なUnityパッケージのインポート完了を待つ
+4. Playモードを開始する
 
-2. **Unityプロジェクトのセットアップ**
-   - このリポジトリをクローン
-   - Unityでプロジェクトを開く
-   - 必要なパッケージが自動的にインストールされます
+このリポジトリでは、チャットUIとキャラクターを配置済みのシーンを使用します。以前存在したシーン自動生成用のEditorツールは削除済みです。
 
-3. **キャラクターモデルの設定**
-   - エディタメニューから `3D model/Build` を選択
-   - または `AutonomousPlayBootstrap` コンポーネントの `ManualSetupWorld()` を実行
-   - キャラクター、床、ウェイポイントが自動的にセットアップされます
+### 3. 接続先を設定する
 
-4. **サーバー接続設定**
-   - Unityエディタで実行
-   - 設定UIからサーバーURLとAPIキーを設定
-   - デフォルト: `http://100.81.92.14:8000`
+Playモード中に設定画面を開き、次の項目を入力して保存します。
 
-## 使用方法
+| 項目 | 内容 |
+| --- | --- |
+| サーバーURL | バックエンドのベースURL。例: `http://192.168.1.20:8000` |
+| APIキー | バックエンドが要求するAPIキー。不要な場合は空欄 |
+| ユーザーID | 会話を識別するID |
 
-### キャラクターのセットアップ
-1. Unityエディタでシーンを開く
-2. `3D model/Build` メニューを選択してシーンをセットアップ
-3. Playモードを開始するとキャラクターが自動的に行動を開始します
+保存した値はUnityの`PlayerPrefs`に端末ごとに保存され、次回起動時に読み込まれます。初期値を変更する場合は [Assets/Scripts/API/ApiClient.cs](Assets/Scripts/API/ApiClient.cs) の`DefaultServerUrl`を変更し、シーンに保存されたURLも合わせて更新してください。
 
-### チャットの使用
-1. Playモードで実行
-2. チャットUIにメッセージを入力
-3. 送信するとAIの応答がキャラクターの吹き出しに表示されます
+## 使い方
 
-### 設定の変更
-- 設定UIから以下を変更できます：
-  - サーバーURL
-  - APIキー
-  - ユーザーID
+### チャット
 
-## キャラクターの行動パラメータ
+1. 入力欄にメッセージを入力する
+2. 送信ボタン、またはEnterキーで送信する
+3. ユーザーのメッセージとAIの応答が履歴に追加される
+4. AIの応答はキャラクター頭上の吹き出しにも表示される
 
-`CharacterBrain` コンポーネントで以下のパラメータを調整できます：
+送信中は二重送信を防ぐため送信ボタンが無効になり、入力エリアに処理中の状態が表示されます。応答には使用モデル名、処理時間、コンテキスト使用状態が含まれる場合があります。
 
-- **待機時間**: waitDurationMin, waitDurationMax
-- **見渡し時間**: lookDurationMin, lookDurationMax
-- **座る時間**: sitDurationMin, sitDurationMax
-- **行動の重み**: 各行動後の次の行動の選択確率
-- **自然さ**: repeatPenalty（同じ行動の繰り返しを避ける）、extraPauseChance（追加のポーズ）
+### 設定
+
+設定画面では次の値を変更できます。
+
+- バックエンドURL
+- APIキー
+- ユーザーID
+- 接続テスト
+
+接続テストは設定画面で入力したURLを一時的に使ってヘルスチェックを行います。保存するまで永続設定は変更されません。
+
+## キャラクターの自律行動
+
+キャラクターの行動は [Assets/Scripts/Character/CharacterBrain.cs](Assets/Scripts/Character/CharacterBrain.cs) が決定します。現在の行動は次の4種類です。
+
+- `Wait`: その場で待機
+- `Walk`: Waypointへ移動
+- `Look`: 周囲を見渡すアニメーション
+- `Sit`: 座るアニメーション
+
+行動は前の行動に応じた重みからランダムに選ばれます。Inspectorでは次の値を調整できます。
+
+- `waitDurationMin` / `waitDurationMax`: 待機時間
+- `lookDurationMin` / `lookDurationMax`: 見渡し時間
+- `sitDurationMin` / `sitDurationMax`: 着席時間
+- `weightsAfterWait` / `weightsAfterWalk` / `weightsAfterLook` / `weightsAfterSit`: 次の行動の重み
+- `repeatPenalty`: 同じ行動が連続する確率を下げる係数
+- `extraPauseChance`: 追加待機の確率
+- `extraPauseMin` / `extraPauseMax`: 追加待機時間
+
+`MovementController`はNavMeshを優先し、NavMeshを利用できない場合は平面移動へフォールバックします。`AnimationController`は状態をAnimatorの`Wait`、`Walk`、`Look`、`Sit`パラメータへ反映します。
 
 ## API通信
 
-### エンドポイント
-- `POST /api/chat`: チャットメッセージを送信
-- `GET /api/health`: サーバーのヘルスチェック
+### ベースURL
 
-### リクエスト形式
+```text
+http://100.81.92.14:8000
+```
+
+これは既定値です。Tailscaleを使わない利用者は、自分のバックエンドのURLへ変更してください。
+
+### チャット送信
+
+```text
+POST /api/chat
+```
+
+404の場合、Unity側は互換用に次のエンドポイントを1回試します。
+
+```text
+POST /unity/predict
+```
+
+リクエストには`X-API-Key`ヘッダーと、次のJSONを送信します。
+
 ```json
 {
-  "message": "ユーザーメッセージ",
-  "user_id": "ユーザーID",
-  "web_search_confirmed": false,
-  "web_search_action": null
+   "message": "ユーザーメッセージ",
+   "user_id": "ユーザーID",
+   "web_search_confirmed": false,
+   "web_search_action": null
 }
 ```
 
-### レスポンス形式
+### ヘルスチェック
+
+```text
+GET /api/health
+```
+
+404の場合は`GET /health`へ再試行します。現在のバックエンド応答例は次の形式です。
+
 ```json
 {
-  "response": "AIの応答",
-  "model_used": "使用モデル",
-  "processing_time": 1.23,
-  "context_used": true,
-  "web_search_used": false,
-  "requires_confirmation": false,
-  "pending_web_search": "",
-  "search_in_progress": false
+   "status": "running",
+   "services": {
+      "fastapi": "ok",
+      "qwen": "ok",
+      "phi3": "disabled"
+   }
 }
 ```
 
-## 技術スタック
+## ディレクトリ構成
 
-- **Unity**: 2022.3.62f3
-- **TextMeshPro**: テキストレンダリング
-- **NavMesh**: ナビゲーションシステム
-- **UnityWebRequest**: HTTP通信
-- **FastAPI**: バックエンドAPI（別リポジトリ）
+```text
+Assets/
+├── Scenes/
+│   └── SampleScene.unity       # 実行対象シーン
+├── Scripts/
+│   ├── API/                    # FastAPI通信とJSONモデル
+│   ├── Chat/                   # チャット状態、履歴、応答処理
+│   ├── Character/              # 行動決定、移動、Animator制御
+│   ├── Core/                   # 実行時ワールド、NavMesh、行動開始
+│   ├── Navigation/             # Waypoint管理
+│   └── UI/                     # チャット、設定、吹き出し、入力補助
+├── Prefabs/                   # ユーザー/AIメッセージPrefab
+├── Animations/                # Animatorとアニメーション
+└── Fonts/                     # フォントアセット
+```
 
-## 注意事項
+## 主なスクリプト
 
-- バックエンドサーバーが起動している必要があります
-- キャラクターモデルは `Assets/untitled.fbx` に配置されています
-- ウェイポイントは自動的に10箇所生成されます
-- 日本語フォントが必要です（TextMeshProの日本語フォント）
+| スクリプト | 役割 |
+| --- | --- |
+| `ApiClient.cs` | チャットとヘルスチェックのHTTP通信、URL/APIキー保存 |
+| `ApiModels.cs` | リクエスト・レスポンスのデータモデル |
+| `ChatUIManager.cs` | 入力、送信、履歴表示、メッセージPrefab生成 |
+| `ChatUIManager.cs`（Chatフォルダ） | チャット履歴、API応答、吹き出し通知 |
+| `SettingsUIManager.cs` | URL、APIキー、ユーザーIDの設定画面 |
+| `CharacterBrain.cs` | キャラクターの次の行動を決定 |
+| `CharacterStateMachine.cs` | `Idle`、`Walking`、`Looking`、`Sitting`を管理 |
+| `MovementController.cs` | NavMesh移動とフォールバック移動 |
+| `AnimationController.cs` | 状態に応じたアニメーション再生 |
+| `WaypointManager.cs` | ランダムな移動先を提供 |
+
+## トラブルシューティング
+
+### 接続できない
+
+1. バックエンドが起動しているか確認する
+2. Unity端末から`http://<IP>:8000/api/health`へアクセスできるか確認する
+3. 設定画面のURLに`http://`とポート番号が含まれているか確認する
+4. Tailscaleを使う場合、Unityを実行する端末が同じTailnetに接続しているか確認する
+5. APIキーが必要なバックエンドでは正しいキーを入力する
+
+### URLを変更しても戻る
+
+設定画面で「保存」を押してください。保存値は`PlayerPrefs`に保持されます。Unity Editorで別の実行環境を確認する場合は、その環境のPlayerPrefsが別管理になることがあります。
+
+### AIの吹き出しが表示されない
+
+キャラクターに`CharacterBrain`が存在すること、シーンに`CharacterBubbleDisplay`が存在すること、日本語フォントが利用可能であることを確認してください。
+
+### キャラクターが移動しない
+
+Waypointが存在することを確認してください。NavMeshが利用できない場合はフォールバック移動を試みますが、キャラクターに`MovementController`と`NavMeshAgent`が必要です。
 
 ## ライセンス
 
-このプロジェクトのライセンスについては、別途確認してください。
-
-## 貢献
-
-バグ報告や機能リクエストはIssueにてお願いします。
-
-## 連絡先
-
-詳細についてはバックエンドリポジトリ [masu-katsu/local-ai-unity-system](https://github.com/masu-katsu/local-ai-unity-system) を参照してください。
+このプロジェクトと使用アセットのライセンスは、それぞれの配布元の条件を確認してください。
