@@ -13,6 +13,8 @@ public class AnimationController : MonoBehaviour
     static readonly int SitHash = Animator.StringToHash("Sit");
     static readonly int WaitHash = Animator.StringToHash("Wait");
     static readonly int WalkHash = Animator.StringToHash("Walk");
+    static readonly int ThinkHash = Animator.StringToHash("think");
+    static readonly int TalkHash = Animator.StringToHash("talk");
 
     [SerializeField] float walkAnimSpeed = 1f;
 
@@ -52,6 +54,12 @@ public class AnimationController : MonoBehaviour
         CharacterState state = stateMachine.CurrentState;
         if (state != lastPlayedState)
             ApplyState(state);
+
+        if ((state == CharacterState.Thinking || state == CharacterState.Talking)
+            && animator.GetCurrentAnimatorStateInfo(0).normalizedTime >= 1f)
+        {
+            animator.Play(state == CharacterState.Thinking ? ThinkHash : TalkHash, 0, 0f);
+        }
 
         bool isWalking = state == CharacterState.Walking;
         animator.SetBool(IsMovingHash, isWalking);
@@ -129,6 +137,22 @@ public class AnimationController : MonoBehaviour
                 animator.SetFloat(SpeedHash, 0f);
                 animator.ResetTrigger(LookHash);
                 animator.SetTrigger(SitHash);
+                break;
+
+            case CharacterState.Thinking:
+                animator.ResetTrigger(LookHash);
+                animator.ResetTrigger(SitHash);
+                animator.SetBool(IsMovingHash, false);
+                animator.SetFloat(SpeedHash, 0f);
+                animator.Play(ThinkHash, 0, 0f);
+                break;
+
+            case CharacterState.Talking:
+                animator.ResetTrigger(LookHash);
+                animator.ResetTrigger(SitHash);
+                animator.SetBool(IsMovingHash, false);
+                animator.SetFloat(SpeedHash, 0f);
+                animator.Play(TalkHash, 0, 0f);
                 break;
 
             default:

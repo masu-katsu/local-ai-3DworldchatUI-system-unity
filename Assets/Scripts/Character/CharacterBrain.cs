@@ -62,6 +62,12 @@ public class CharacterBrain : MonoBehaviour
     BehaviorKind lastBehavior = BehaviorKind.Wait;
     float actionTimer;
     bool started;
+    bool chatActive;
+    bool waitingForWalkArrival;
+    bool firstCharacterReceived;
+    bool responseCompleted;
+    CharacterState stateBeforeChat;
+    float timerBeforeChat;
 
     void Awake()
     {
@@ -75,17 +81,42 @@ public class CharacterBrain : MonoBehaviour
     void OnEnable()
     {
         stateMachine.OnStateChanged += HandleStateChanged;
+        SubscribeToChat();
     }
 
     void OnDisable()
     {
         stateMachine.OnStateChanged -= HandleStateChanged;
+        if (ChatManager.Instance != null)
+        {
+            ChatManager.Instance.OnAssistantStreamStarted -= BeginChatAnimation;
+            ChatManager.Instance.OnAssistantTextAppended -= HandleAssistantText;
+            ChatManager.Instance.OnAssistantStreamCompleted -= EndChatAnimation;
+        }
     }
 
     void Update()
     {
+        SubscribeToChat();
+
         if (!started)
             return;
+
+        if (chatActive)
+        {
+            if (waitingForWalkArrival && movement.HasArrived())
+            {
+                waitingForWalkArrival = false;
+                stateMachine.SetState(firstCharacterReceived
+                    ? CharacterState.Talking
+                    : CharacterState.Thinking);
+
+                if (responseCompleted)
+                    ResumeAfterChat();
+            }
+
+            return;
+        }
 
         if (actionTimer > 0f)
             actionTimer -= Time.deltaTime;
@@ -270,6 +301,67 @@ public class CharacterBrain : MonoBehaviour
             return;
 
         movement.Stop();
+    }
+
+    void SubscribeToChat()
+    {
+        if (ChatManager.Instance == null)
+            return;
+
+        ChatManager.Instance.OnAssistantStreamStarted -= BeginChatAnimation;
+        ChatManager.Instance.OnAssistantStreamStarted += BeginChatAnimation;
+        ChatManager.Instance.OnAssistantTextAppended -= HandleAssistantText;
+        ChatManager.Instance.OnAssistantTextAppended += HandleAssistantText;
+        ChatManager.Instance.OnAssistantStreamCompleted -= EndChatAnimation;
+        ChatManager.Instance.OnAssistantStreamCompleted += EndChatAnimation;
+    }
+
+    void BeginChatAnimation()
+    {
+        if (chatActive)
+            return;
+
+        chatActive = true;
+        firstCharacterReceived = false;
+        responseCompleted = false;
+        stateBeforeChat = stateMachine.CurrentState;
+        timerBeforeChat = actionTimer;
+        waitingForWalkArrival = stateBeforeChat == CharacterState.Walking;
+
+        if (!waitingForWalkArrival)
+            stateMachine.SetState(CharacterState.Thinking);
+    }
+
+    void HandleAssistantText(string text)
+    {
+        if (!chatActive || string.IsNullOrEmpty(text) || firstCharacterReceived)
+            return;
+
+        firstCharacterReceived = true;
+        if (!waitingForWalkArrival)
+            stateMachine.SetState(CharacterState.Talking);
+    }
+
+    void EndChatAnimation()
+    {
+        if (!chatActive)
+            return;
+
+        responseCompleted = true;
+        if (!waitingForWalkArrival)
+            ResumeAfterChat();
+    }
+
+    void ResumeAfterChat()
+    {
+        chatActive = false;
+        waitingForWalkArrival = false;
+        stateMachine.SetState(stateBeforeChat == CharacterState.Walking
+            ? CharacterState.Idle
+            : stateBeforeChat);
+        actionTimer = stateBeforeChat == CharacterState.Walking
+            ? 0f
+            : timerBeforeChat;
     }
 
     public void SetWaypointManager(WaypointManager manager)

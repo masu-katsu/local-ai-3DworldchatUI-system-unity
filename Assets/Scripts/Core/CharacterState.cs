@@ -6,5 +6,7 @@ public enum CharacterState
     Idle,
     Walking,
     Looking,
-    Sitting
+    Sitting,
+    Thinking,
+    Talking
 }
