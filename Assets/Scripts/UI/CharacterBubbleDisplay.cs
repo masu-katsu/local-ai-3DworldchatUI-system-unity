@@ -32,6 +32,8 @@ public class CharacterBubbleDisplay : MonoBehaviour
 
     private CanvasGroup canvasGroup;
     private Coroutine currentDisplayCoroutine;
+    private bool isStreamingText;
+    private bool isSubscribed;
 
     private void Awake()
     {
@@ -86,6 +88,36 @@ public class CharacterBubbleDisplay : MonoBehaviour
             canvasGroup.alpha = 0f;
     }
 
+    private void OnEnable()
+    {
+        SubscribeToChatManager();
+    }
+
+    private void Start()
+    {
+        SubscribeToChatManager();
+    }
+
+    private void SubscribeToChatManager()
+    {
+        if (isSubscribed || ChatManager.Instance == null) return;
+
+        ChatManager.Instance.OnAssistantTextAppended += AppendBubbleText;
+        ChatManager.Instance.OnAssistantStreamStarted += BeginStreamText;
+        ChatManager.Instance.OnAssistantStreamCompleted += EndStreamText;
+        isSubscribed = true;
+    }
+
+    private void OnDisable()
+    {
+        if (ChatManager.Instance == null) return;
+
+        ChatManager.Instance.OnAssistantTextAppended -= AppendBubbleText;
+        ChatManager.Instance.OnAssistantStreamStarted -= BeginStreamText;
+        ChatManager.Instance.OnAssistantStreamCompleted -= EndStreamText;
+        isSubscribed = false;
+    }
+
     private void Update()
     {
         // 吹き出しをキャラクター頭上に常に追従させる（表示中でなくても）
@@ -134,6 +166,44 @@ public class CharacterBubbleDisplay : MonoBehaviour
 
         // 吹き出し表示コルーチンを開始
         currentDisplayCoroutine = StartCoroutine(DisplayBubbleCoroutine());
+    }
+
+    private void AppendBubbleText(string text)
+    {
+        if (bubbleText == null || string.IsNullOrEmpty(text)) return;
+        if (!isStreamingText) BeginStreamText();
+        if (canvasGroup != null) canvasGroup.alpha = 1f;
+        bubbleText.text += CleanMessage(text);
+        bubbleText.ForceMeshUpdate(true, true);
+        Canvas.ForceUpdateCanvases();
+        AdjustBubbleSizeToText();
+    }
+
+    private void BeginStreamText()
+    {
+        isStreamingText = true;
+        if (bubbleText != null) bubbleText.text = string.Empty;
+        if (canvasGroup != null) canvasGroup.alpha = 1f;
+        AdjustBubbleSizeToText();
+    }
+
+    private void EndStreamText()
+    {
+        isStreamingText = false;
+        if (currentDisplayCoroutine != null)
+            StopCoroutine(currentDisplayCoroutine);
+        currentDisplayCoroutine = StartCoroutine(DisplayBubbleCoroutine());
+    }
+
+    private static string CleanMessage(string message)
+    {
+        return string.IsNullOrEmpty(message)
+            ? string.Empty
+            : message.Replace("<|assistant|>", "")
+                .Replace("<|user|>", "")
+                .Replace("<|system|>", "")
+                .Replace("<|im_start|>", "")
+                .Replace("<|im_end|>", "");
     }
 
     /// <summary>

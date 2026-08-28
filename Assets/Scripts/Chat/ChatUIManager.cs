@@ -14,6 +14,7 @@ public class ChatManager : MonoBehaviour
 
     [Header("ユーザー設定")]
     [SerializeField] private string userId = "default_user";
+    [SerializeField] private float streamedCharactersPerSecond = 30f;
 
     // チャットメッセージのリスト（表示用）
     private List<ChatMessage> messages = new List<ChatMessage>();
@@ -25,6 +26,14 @@ public class ChatManager : MonoBehaviour
     public event Action<ChatMessage> OnMessageAdded;
     public event Action<bool> OnSendingStateChanged;
     public event Action<string> OnError;
+    public event Action<string> OnAssistantTextAppended;
+    public event Action OnAssistantStreamStarted;
+    public event Action OnAssistantStreamCompleted;
+
+    private readonly Queue<string> incomingText = new Queue<string>();
+    private ChatMessage currentAssistantMessage;
+    private bool streamCompleted;
+    private float characterAccumulator;
 
     public string UserId
     {
@@ -62,6 +71,25 @@ public class ChatManager : MonoBehaviour
         {
             Debug.Log("[ChatManager] CharacterBubbleDisplay が既に存在します。");
         }
+    }
+
+    private void Update()
+    {
+        if (!IsSending || incomingText.Count == 0) return;
+
+        characterAccumulator += Mathf.Max(1f, streamedCharactersPerSecond) * Time.deltaTime;
+        int charactersToSend = Mathf.Max(1, Mathf.FloorToInt(characterAccumulator));
+        characterAccumulator -= charactersToSend;
+
+        while (charactersToSend-- > 0 && incomingText.Count > 0)
+        {
+            string chunk = incomingText.Dequeue();
+            currentAssistantMessage.content += chunk;
+            OnAssistantTextAppended?.Invoke(chunk);
+        }
+
+        if (streamCompleted && incomingText.Count == 0)
+            FinishStreaming();
     }
 
     /// <summary>
@@ -296,52 +324,68 @@ public class ChatManager : MonoBehaviour
     
     private void SendChatRequest(string message)
     {
-        // API に送信
-        ApiClient.Instance.SendChat(
+        incomingText.Clear();
+        streamCompleted = false;
+        characterAccumulator = 0f;
+        BeginAssistantMessage();
+        ApiClient.Instance.SendChatStreaming(
             message,
             userId,
-            onSuccess: (response) =>
+            onChunk: (chunk) =>
             {
-                HandleChatResponse(response);
-                IsSending = false;
-                OnSendingStateChanged?.Invoke(false);
+                if (!string.IsNullOrEmpty(chunk)) incomingText.Enqueue(chunk);
+            },
+            onComplete: (response) =>
+            {
+                streamCompleted = true;
+                if (currentAssistantMessage != null)
+                {
+                    currentAssistantMessage.modelUsed = response.model_used;
+                    currentAssistantMessage.processingTime = response.processing_time;
+                    currentAssistantMessage.contextUsed = response.context_used;
+                }
+                if (incomingText.Count == 0) FinishStreaming();
             },
             onError: (error) =>
             {
+                incomingText.Clear();
+                streamCompleted = true;
                 OnError?.Invoke(error);
-                IsSending = false;
-                OnSendingStateChanged?.Invoke(false);
+                FinishStreaming();
             }
         );
     }
 
-    private void HandleChatResponse(ChatResponse response)
+    private void BeginAssistantMessage()
     {
-        Debug.Log($"[ChatManager] HandleChatResponse - メッセージ: {response.response}");
-
-        // AI の応答を追加
-        var aiMsg = new ChatMessage
+        currentAssistantMessage = new ChatMessage
         {
             role = "assistant",
-            content = response.response,
-            timestamp = DateTime.Now,
-            modelUsed = response.model_used,
-            processingTime = response.processing_time,
-            contextUsed = response.context_used
+            content = string.Empty,
+            timestamp = DateTime.Now
         };
-        messages.Add(aiMsg);
-        OnMessageAdded?.Invoke(aiMsg);
+        messages.Add(currentAssistantMessage);
+        OnMessageAdded?.Invoke(currentAssistantMessage);
+        OnAssistantStreamStarted?.Invoke();
+    }
 
-        // キャラクター頭上の吹き出しに表示
-        if (CharacterBubbleDisplay.Instance != null)
-        {
-            Debug.Log("[ChatManager] CharacterBubbleDisplay.Instance が見つかりました。ShowBubble を実行します。");
-            CharacterBubbleDisplay.Instance.ShowBubble(response.response);
-        }
-        else
-        {
-            Debug.LogError("[ChatManager] CharacterBubbleDisplay.Instance が null です");
-        }
+    private void FinishStreaming()
+    {
+        if (!IsSending) return;
+        IsSending = false;
+        currentAssistantMessage = null;
+        streamCompleted = false;
+        characterAccumulator = 0f;
+        OnSendingStateChanged?.Invoke(false);
+        OnAssistantStreamCompleted?.Invoke();
+    }
+
+    public void CancelChat()
+    {
+        ApiClient.Instance?.CancelChat();
+        incomingText.Clear();
+        streamCompleted = true;
+        FinishStreaming();
     }
 
     /// <summary>

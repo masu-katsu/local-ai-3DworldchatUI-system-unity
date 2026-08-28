@@ -45,66 +45,141 @@ public class ApiClient : MonoBehaviour
 
     public void SendChat(string message, string userId, Action<ChatResponse> onSuccess, Action<string> onError)
     {
-        StartCoroutine(SendChatCoroutine(message, userId, onSuccess, onError));
+        SendChatStreaming(message, userId, null, onSuccess, onError);
     }
 
-    private IEnumerator SendChatCoroutine(string message, string userId, Action<ChatResponse> onSuccess, Action<string> onError)
+    public void SendChatStreaming(string message, string userId, Action<string> onChunk, Action<ChatResponse> onComplete, Action<string> onError)
     {
-        var requestBody = new ChatRequest 
-        { 
-            message = message, 
-            user_id = userId
-        };
+        activeChatCoroutine = StartCoroutine(SendChatStreamingCoroutine(message, userId, onChunk, onComplete, onError));
+    }
+
+    public void CancelChat()
+    {
+        if (activeChatCoroutine != null)
+        {
+            StopCoroutine(activeChatCoroutine);
+            activeChatCoroutine = null;
+        }
+    }
+
+    private Coroutine activeChatCoroutine;
+    private StringBuilder streamBuffer;
+    private StringBuilder streamedText;
+    private string lastCumulativeResponse;
+    private string lastStreamJson;
+
+    private IEnumerator SendChatStreamingCoroutine(string message, string userId, Action<string> onChunk, Action<ChatResponse> onComplete, Action<string> onError)
+    {
+        var requestBody = new ChatRequest { message = message, user_id = userId };
         string json = JsonUtility.ToJson(requestBody);
         string[] endpoints = { "/api/chat", "/unity/predict" };
 
         for (int i = 0; i < endpoints.Length; i++)
         {
-            string endpoint = endpoints[i];
-            using (var request = new UnityWebRequest($"{serverUrl}{endpoint}", "POST"))
+            streamBuffer = new StringBuilder();
+            streamedText = new StringBuilder();
+            lastCumulativeResponse = string.Empty;
+            lastStreamJson = string.Empty;
+            var handler = new StreamingDownloadHandler(ProcessStreamText, onChunk);
+            using (var request = new UnityWebRequest($"{serverUrl}{endpoints[i]}", "POST"))
             {
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
-                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                request.downloadHandler = new DownloadHandlerBuffer();
+                request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
+                request.downloadHandler = handler;
                 request.SetRequestHeader("Content-Type", "application/json; charset=utf-8");
                 request.SetRequestHeader("X-API-Key", apiKey);
                 request.timeout = timeoutSeconds;
 
                 yield return request.SendWebRequest();
+                handler.Flush();
+                ProcessStreamLine(string.Empty, true, onChunk);
 
                 if (request.result == UnityWebRequest.Result.Success)
                 {
-                    try
-                    {
-                        string jsonText = request.downloadHandler.text;
-                        Debug.Log("[ApiClient] Response: " + jsonText);
-                        var response = JsonUtility.FromJson<ChatResponse>(jsonText);
-                        
-                        if (response == null)
-                        {
-                            onError?.Invoke("Parse error: null response");
-                            yield break;
-                        }
-                        
-                        onSuccess?.Invoke(response);
-                        yield break;
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.LogError("[ApiClient] Error: " + e);
-                        onError?.Invoke("Parse error: " + e.Message);
-                        yield break;
-                    }
+                    onComplete?.Invoke(ParseResponse(streamedText.ToString(), lastStreamJson));
+                    activeChatCoroutine = null;
+                    yield break;
                 }
 
                 bool shouldRetry = request.responseCode == 404 && i < endpoints.Length - 1;
                 if (!shouldRetry)
                 {
+                    activeChatCoroutine = null;
                     onError?.Invoke(GetErrorMessage(request));
                     yield break;
                 }
             }
         }
+    }
+
+    private void ProcessStreamText(string text, Action<string> onChunk)
+    {
+        streamBuffer.Append(text);
+        int newline;
+        while ((newline = streamBuffer.ToString().IndexOf('\n')) >= 0)
+        {
+            string line = streamBuffer.ToString(0, newline).TrimEnd('\r');
+            streamBuffer.Remove(0, newline + 1);
+            ProcessStreamLine(line, false, onChunk);
+        }
+    }
+
+    private void ProcessStreamLine(string line, bool flush, Action<string> onChunk)
+    {
+        if (flush && streamBuffer.Length > 0)
+        {
+            line = streamBuffer.ToString();
+            streamBuffer.Clear();
+        }
+        if (string.IsNullOrWhiteSpace(line)) return;
+        bool isDataLine = line.StartsWith("data:", StringComparison.OrdinalIgnoreCase);
+        if (isDataLine)
+            line = line.Substring(5).Trim();
+        else if (!line.StartsWith("{", StringComparison.Ordinal))
+            return;
+        if (line == "[DONE]") return;
+
+        string text = ExtractStreamText(line);
+        if (string.IsNullOrEmpty(text)) return;
+        streamedText.Append(text);
+        onChunk?.Invoke(text);
+    }
+
+    private string ExtractStreamText(string payload)
+    {
+        lastStreamJson = payload;
+        try
+        {
+            var chunk = JsonUtility.FromJson<StreamChunk>(payload);
+            if (chunk != null && !string.IsNullOrEmpty(chunk.text))
+                return chunk.text;
+            if (chunk != null && chunk.choices != null && chunk.choices.Length > 0 && chunk.choices[0].delta != null)
+                return chunk.choices[0].delta.content ?? string.Empty;
+            if (chunk != null && !string.IsNullOrEmpty(chunk.response))
+            {
+                string cumulative = chunk.response;
+                if (cumulative == lastCumulativeResponse) return string.Empty;
+                string suffix = cumulative.StartsWith(streamedText.ToString(), StringComparison.Ordinal)
+                    ? cumulative.Substring(streamedText.Length)
+                    : cumulative;
+                lastCumulativeResponse = cumulative;
+                return suffix;
+            }
+        }
+        catch (ArgumentException) { }
+        return payload;
+    }
+
+    private ChatResponse ParseResponse(string text, string lastJson)
+    {
+        ChatResponse response = null;
+        if (!string.IsNullOrEmpty(lastJson))
+        {
+            try { response = JsonUtility.FromJson<ChatResponse>(lastJson); }
+            catch (ArgumentException) { }
+        }
+        if (response == null) response = new ChatResponse();
+        response.response = text;
+        return response;
     }
 
     public void CheckHealth(Action<HealthResponse> onSuccess, Action<string> onError)
@@ -181,5 +256,38 @@ public class ApiClient : MonoBehaviour
             default:
                 return "Error: " + request.error;
         }
+    }
+}
+
+public sealed class StreamingDownloadHandler : DownloadHandlerScript
+{
+    private readonly Action<string, Action<string>> onText;
+    private readonly Action<string> onChunk;
+    private readonly Decoder decoder = Encoding.UTF8.GetDecoder();
+    private readonly char[] charBuffer = new char[8192];
+
+    public string LastJson { get; private set; }
+
+    public StreamingDownloadHandler(Action<string, Action<string>> onText, Action<string> onChunk)
+        : base(new byte[8192])
+    {
+        this.onText = onText;
+        this.onChunk = onChunk;
+    }
+
+    protected override bool ReceiveData(byte[] data, int dataLength)
+    {
+        if (data == null || dataLength <= 0) return true;
+        int charCount = decoder.GetChars(data, 0, dataLength, charBuffer, 0, false);
+        if (charCount > 0)
+            onText?.Invoke(new string(charBuffer, 0, charCount), onChunk);
+        return true;
+    }
+
+    public void Flush()
+    {
+        int charCount = decoder.GetChars(Array.Empty<byte>(), 0, 0, charBuffer, 0, true);
+        if (charCount > 0)
+            onText?.Invoke(new string(charBuffer, 0, charCount), onChunk);
     }
 }

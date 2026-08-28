@@ -110,6 +110,15 @@ public class MessageBubble : MonoBehaviour
         RecalculateBubbleSize();
     }
 
+    public void AppendMessageText(string text)
+    {
+        if (messageText == null || string.IsNullOrEmpty(text)) return;
+        messageText.text += CleanMessage(text);
+        messageText.ForceMeshUpdate();
+        Canvas.ForceUpdateCanvases();
+        RecalculateBubbleSize();
+    }
+
 
     /// <summary>
     /// ContentとViewportの参照を取得する。

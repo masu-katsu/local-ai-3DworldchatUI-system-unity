@@ -18,6 +18,7 @@ public class ChatUIManager : MonoBehaviour
     [Header("メッセージPrefab")]
     [SerializeField] private GameObject userMessagePrefab;
     [SerializeField] private GameObject aiMessagePrefab;
+    private MessageBubble activeAiBubble;
 
 
 
@@ -117,6 +118,7 @@ public class ChatUIManager : MonoBehaviour
         inputField.onSubmit.AddListener((_) => OnSendClicked());
 
         ChatManager.Instance.OnMessageAdded += OnMessageAdded;
+            ChatManager.Instance.OnAssistantTextAppended += OnAssistantTextAppended;
         ChatManager.Instance.OnSendingStateChanged += OnSendingStateChanged;
         ChatManager.Instance.OnError += OnError;
 
@@ -136,6 +138,7 @@ public class ChatUIManager : MonoBehaviour
         if (ChatManager.Instance != null)
         {
             ChatManager.Instance.OnMessageAdded -= OnMessageAdded;
+                        ChatManager.Instance.OnAssistantTextAppended -= OnAssistantTextAppended;
             ChatManager.Instance.OnSendingStateChanged -= OnSendingStateChanged;
             ChatManager.Instance.OnError -= OnError;
         }
@@ -171,6 +174,17 @@ public class ChatUIManager : MonoBehaviour
         }
 
         AddBubble(message);
+    }
+
+    private void OnAssistantTextAppended(string text)
+    {
+        if (activeAiBubble == null) return;
+        activeAiBubble.AppendMessageText(text);
+        Canvas.ForceUpdateCanvases();
+        if (messageContainer is RectTransform contentRect)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
+        if (scrollRect != null)
+            scrollRect.verticalNormalizedPosition = 0f;
     }
 
     /// <summary>
@@ -232,6 +246,8 @@ public class ChatUIManager : MonoBehaviour
 
         // 本文・サイズを設定
         bubble.SetMessage(message);
+        if (!isUser)
+            activeAiBubble = bubble;
 
         // Contentのレイアウトを再計算
         Canvas.ForceUpdateCanvases();

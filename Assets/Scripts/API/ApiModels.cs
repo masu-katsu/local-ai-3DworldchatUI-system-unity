@@ -31,6 +31,26 @@ public class ChatResponse
 }
 
 [Serializable]
+public class StreamChunk
+{
+    public string text;
+    public string response;
+    public StreamChoice[] choices;
+}
+
+[Serializable]
+public class StreamChoice
+{
+    public StreamDelta delta;
+}
+
+[Serializable]
+public class StreamDelta
+{
+    public string content;
+}
+
+[Serializable]
 public class HealthResponse
 {
     public string status;
